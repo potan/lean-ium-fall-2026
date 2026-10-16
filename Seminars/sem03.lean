@@ -36,15 +36,34 @@ structure Exists' {α : Type} {P : α → Prop} : Prop where
 example : (∃ x : α, P x ∧ Q x) → (∃ x : α, P x) ∧ (∃ x : α, Q x) :=
   λ ⟨x, hp, hq⟩ ↦ ⟨⟨x, hp⟩, ⟨x, hq⟩⟩
 
-example : (∃ x, P x ∨ Q x) ↔ (∃ x, P x) ∨ (∃ x, Q x) :=
-  sorry
+example : (∃ x, P x ∨ Q x) ↔ (∃ x, P x) ∨ (∃ x, Q x) := by
+  constructor
+  · intro ⟨x, hx⟩
+    cases hx with
+    | inl h => apply Or.inl
+               exists x
+    | inr h => apply Or.inr
+               exists x
+  · intro h
+    cases h with
+    | inl ep => let ⟨x, hx⟩ := ep
+                exists x
+                apply Or.inl
+                exact hx
+    | inr eq => let ⟨x, hx⟩ := eq
+                exists x
+                apply Or.inr
+                exact hx
+
+
 
 
 /- Cantor theorem -/
 
 /- 2^α ≃ α → Prop (at least classicaly) -/
 theorem cantor (f : α → (α → Prop)) :
- ¬∀ S : α → Prop, ∃ x : α, ∀ y : α, S y ↔ f x y :=
+ ¬∀ S : α → Prop, ∃ x : α, ∀ y : α, S y ↔ f x y := by
+  intros h
   sorry
 
 /- Classical logic -/
@@ -234,14 +253,41 @@ example (x : α) (h : p) : x = x ∧ p := by
 # Exercises
 -/
 section hw
-  example : ∀ p q : Prop, p ∧ q ↔ ∀ r : Prop, (p → q → r) → r :=
-    sorry
+  example : ∀ p q : Prop, p ∧ q ↔ ∀ r : Prop, (p → q → r) → r := by
+   intros x y
+   constructor
+   · intros h rh f
+     exact f h.left h.right
+   · intros h
+     constructor
+     · apply (h x)
+       intros a _
+       exact a
+     · apply (h y)
+       intros _ a
+       exact a
 
-  example : ∀ p q : Prop, p ∨ q ↔ ∀ r : Prop, (p → r) → (q → r) → r :=
-    sorry
+  example : ∀ p q : Prop, p ∨ q ↔ ∀ r : Prop, (p → r) → (q → r) → r := by
+    intros hp hq
+    constructor
+    · intros h hr pr qr
+      exact Or.elim h pr qr
+    · intros h
+      apply h
+      · exact Or.inl
+      · exact Or.inr
 
-  example : (∃ x : α, P x) ↔ ∀ r : Prop, (∀ x : α, P x → r) → r :=
-    sorry
+  example : (∃ x : α, P x) ↔ ∀ r : Prop, (∀ x : α, P x → r) → r := by
+    constructor
+    · intros he r ha
+      let ⟨x, hx⟩ := he
+      apply ha x
+      exact hx
+    · intros h
+      apply h (exists x, P x)
+      intro x1 px1
+      exists x1
+
 
   theorem knaster_tarski
     (R : α → α → Prop)

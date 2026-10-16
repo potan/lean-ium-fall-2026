@@ -123,14 +123,23 @@ theorem t1 : p → q → p := λ hp _ ↦ hp
 
 theorem t1' : p → q → p :=
   λ hp : p ↦
-  λ hq : q ↦
+  λ _ : q ↦
   show p from hp
 
 theorem t2 (hp : p) : q → p := t1 hp
 
-example : p → p := sorry
-example : (p → q) → (q → r) → p → r := sorry
-example : (p → (q → r)) → (p → q) → p → r := sorry
+example : p → p := id
+example : (p → q) → (q → r) → p → r := by
+  intro f g p
+  apply g
+  apply f
+  exact p
+example : (p → (q → r)) → (p → q) → p → r := by
+  intro f g p
+  apply f
+  exact p
+  apply g
+  exact p
 
 /- And -/
 #check And
@@ -139,7 +148,9 @@ example : (p → (q → r)) → (p → q) → p → r := sorry
 #check p ∧ q
 
 example : p → q → p ∧ q := λ hp hq ↦ ⟨hp, hq⟩
-example : p ∧ q → q ∧ p := sorry
+example : p ∧ q → q ∧ p := by
+  intro h
+  exact ⟨h.right, h.left⟩
 
 /- Or -/
 
@@ -181,7 +192,11 @@ example : False → p := False.elim
 example : (p → ¬ p → q) :=
   λ hp hnp ↦ False.elim (hnp hp)
 
-example : (p → q) → (¬ q → ¬ p) := sorry
+example : (p → q) → (¬ q → ¬ p) := by
+  intro h nq tp
+  apply nq
+  apply h
+  exact tp
 
 /- Iff -/
 
@@ -193,7 +208,12 @@ example : (p → q) → (¬ q → ¬ p) := sorry
 example : p ↔ p ∧ p :=
   ⟨λ hp ↦ ⟨hp, hp⟩,
   λ hpp ↦ hpp.left⟩
-example : p ∧ q ↔ q ∧ p := sorry
+example : p ∧ q ↔ q ∧ p := by
+  constructor
+  · intro ⟨ph, qh⟩
+    exact ⟨qh, ph⟩
+  · intro ⟨qh, ph⟩
+    exact ⟨ph, qh⟩
 
 /- Local definitions -/
 example : p ∧ (q ∨ r) ↔ (p ∧ q) ∨ (p ∧ r) :=
@@ -219,39 +239,84 @@ example : p ∧ (q ∨ r) ↔ (p ∧ q) ∨ (p ∧ r) :=
 /- Classical logic -/
 
 #check Classical.em
+#check absurd
 
 example : ¬¬ p → p :=
   λ h ↦ Or.elim (Classical.em p)
     (λ hp ↦ hp)
     (λ hnp ↦ False.elim (h hnp))
-example : ¬(p ∧ ¬q) → (p → q) := sorry
+example : ¬(p ∧ ¬q) → (p → q) := fun h hp =>
+  Or.elim (Classical.em q)
+    id
+    fun nq => False.elim (h ⟨hp, nq⟩)
 /-!
 # Exercises
 -/
 
 section hw
   /- Classical.em is not required: -/
-  example : (p ∧ q) ∧ r ↔ p ∧ (q ∧ r) := sorry
-  example : (p ∨ q) ∨ r ↔ p ∨ (q ∨ r) := sorry
-  example : p ∨ (q ∧ r) ↔ (p ∨ q) ∧ (p ∨ r) := sorry
-  example : (p → (q → r)) ↔ (p ∧ q → r) := sorry
-  example : ((p ∨ q) → r) ↔ (p → r) ∧ (q → r) := sorry
-  example : ¬(p ∨ q) ↔ ¬p ∧ ¬q := sorry
-  example : ¬p ∨ ¬q → ¬(p ∧ q) := sorry
-  example : ¬(p ∧ ¬p) := sorry
-  example : p ∧ ¬q → ¬(p → q) := sorry
-  example : ¬p → (p → q) := sorry
-  example : (¬p ∨ q) → (p → q) := sorry
-  example : p ∨ False ↔ p := sorry
-  example : p ∧ False ↔ False := sorry
-  example : (p → q) → (¬q → ¬p) := sorry
+  example : (p ∧ q) ∧ r ↔ p ∧ (q ∧ r) :=
+    ⟨fun rb =>
+      ⟨rb.left.left,⟨rb.left.right,rb.right⟩⟩,
+     fun rb =>
+      ⟨⟨rb.left,rb.right.left⟩,rb.right.right⟩⟩
+  example : (p ∨ q) ∨ r ↔ p ∨ (q ∨ r) := ⟨
+     fun a =>
+       Or.elim a
+         (fun hpq => Or.elim hpq Or.inl (Or.inr ∘ Or.inl))
+         (Or.inr ∘ Or.inr),
+     fun a =>
+       Or.elim a
+         (Or.inl ∘ Or.inl)
+         fun aa => Or.elim aa
+                     (Or.inl ∘ Or.inr)
+                     Or.inr⟩
+  example : p ∨ (q ∧ r) ↔ (p ∨ q) ∧ (p ∨ r) := ⟨
+      (fun h => Or.elim h (fun ph => ⟨Or.inl ph, Or.inl ph⟩) (fun ⟨qh, rh⟩ => ⟨Or.inr qh, Or.inr rh⟩)),
+      (fun ⟨qh, rh⟩ => Or.elim qh Or.inl (fun qh => Or.elim rh Or.inl fun rh => Or.inr ⟨qh, rh⟩))⟩
+  example : (p → (q → r)) ↔ (p ∧ q → r) := ⟨
+      (fun f h => f h.left h.right),
+      (fun f ph qh => f ⟨ph, qh⟩)⟩
+  example : ((p ∨ q) → r) ↔ (p → r) ∧ (q → r) := ⟨
+      (fun f => ⟨f ∘ Or.inl, f ∘ Or.inr⟩),
+      (fun ⟨ph, qh⟩ h => Or.elim h ph qh)⟩
+  example : ¬(p ∨ q) ↔ ¬p ∧ ¬q := ⟨
+    (fun h => ⟨h ∘ Or.inl, h ∘ Or.inr⟩),
+    (fun ng ps => Or.elim ps ng.left ng.right)
+  ⟩
+  example : ¬p ∨ ¬q → ¬(p ∧ q) := fun ng ⟨ph, qh⟩ => Or.elim ng (fun f => f ph) (fun f => f qh)
+  example : ¬(p ∧ ¬p) := fun ⟨ps, ng⟩ => ng ps
+  example : p ∧ ¬q → ¬(p → q) := fun ⟨ph, nqh⟩ h => nqh (h ph)
+  example : ¬p → (p → q) := Function.comp False.elim
+  example : (¬p ∨ q) → (p → q) := fun h ph => Or.elim h (fun np => False.elim (np ph)) id
+  example : p ∨ False ↔ p := ⟨(fun h => Or.elim h id False.elim), Or.inl⟩
+  example : p ∧ False ↔ False := ⟨And.right, False.elim⟩
+  example : (p → q) → (¬q → ¬p) := fun h hnq hp => hnq (h hp)
 
   /- Classical.em is required: -/
-  example : (p → q ∨ r) → ((p → q) ∨ (p → r)) := sorry
-  example : ¬(p ∧ q) → ¬p ∨ ¬q := sorry
-  example : ¬(p → q) → p ∧ ¬q := sorry
-  example : (p → q) → (¬p ∨ q) := sorry
-  example : (¬q → ¬p) → (p → q) := sorry
-  example : p ∨ ¬p := sorry
-  example : (((p → q) → p) → p) := sorry
+  example : (p → q ∨ r) → ((p → q) ∨ (p → r)) := fun h =>
+    Or.elim (Classical.em q)
+      (fun qh => Or.inl (fun _ => qh))
+      (fun qh => Or.inr (fun ph => Or.elim (h ph) (False.elim ∘ qh) id))
+  example : ¬(p ∧ q) → ¬p ∨ ¬q := fun h =>
+    Or.elim (Classical.em p)
+      (fun hp => Or.inr (fun hq => h ⟨hp, hq⟩))
+      Or.inl
+  example : ¬(p → q) → p ∧ ¬q := fun h =>
+    Or.elim (Classical.em p)
+      (fun hp => Or.elim (Classical.em q) (fun hq => False.elim (h (fun _ => hq))) (fun hq => ⟨hp, hq⟩))
+      (fun hnp => False.elim (h (fun hp => False.elim (hnp hp))))
+  example : (p → q) → (¬p ∨ q) := fun h =>
+    Or.elim (Classical.em p)
+      (Or.inr ∘ h)
+      Or.inl
+  example : (¬q → ¬p) → (p → q) := fun h =>
+    Or.elim (Classical.em q)
+      (λ hq _ => hq)
+      (λ hnq hp => False.elim (h hnq hp))
+  example : p ∨ ¬p := Classical.em p
+  example : (((p → q) → p) → p) := fun h =>
+    Or.elim (Classical.em p)
+      id
+      (λ hnp => h (False.elim ∘ hnp))
 end hw
